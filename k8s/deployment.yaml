@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-springboot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello-springboot
+  template:
+    metadata:
+      labels:
+        app: hello-springboot
+    spec:
+      containers:
+        - name: hello-springboot
+          image: pram821/hello-springboot:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
