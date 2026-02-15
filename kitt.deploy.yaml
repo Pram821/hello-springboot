@@ -223,6 +223,171 @@ argocd:
             maxDuration: 1m
 
 # -------------------------------------------
+# OPA Gatekeeper - Policy Enforcement
+# -------------------------------------------
+gatekeeper:
+  # Policy 1: Require resource limits on all containers
+  require_resource_limits:
+    template:
+      apiVersion: templates.gatekeeper.sh/v1
+      kind: ConstraintTemplate
+      metadata:
+        name: k8srequiredresources
+      spec:
+        crd:
+          spec:
+            names:
+              kind: K8sRequiredResources
+        targets:
+          - target: admission.k8s.gatekeeper.sh
+            rego: |
+              package k8srequiredresources
+              violation[{"msg": msg}] {
+                container := input.review.object.spec.template.spec.containers[_]
+                not container.resources.limits
+                msg := sprintf("Container '%v' must have resource limits", [container.name])
+              }
+    constraint:
+      apiVersion: constraints.gatekeeper.sh/v1beta1
+      kind: K8sRequiredResources
+      metadata:
+        name: require-resource-limits
+      spec:
+        match:
+          kinds:
+            - apiGroups: ["apps"]
+              kinds: ["Deployment"]
+          namespaces: ["default"]
+
+  # Policy 2: Block privileged containers
+  block_privileged:
+    template:
+      apiVersion: templates.gatekeeper.sh/v1
+      kind: ConstraintTemplate
+      metadata:
+        name: k8sblockprivileged
+      spec:
+        crd:
+          spec:
+            names:
+              kind: K8sBlockPrivileged
+        targets:
+          - target: admission.k8s.gatekeeper.sh
+            rego: |
+              package k8sblockprivileged
+              violation[{"msg": msg}] {
+                container := input.review.object.spec.template.spec.containers[_]
+                container.securityContext.privileged == true
+                msg := sprintf("Privileged container '%v' is not allowed", [container.name])
+              }
+    constraint:
+      apiVersion: constraints.gatekeeper.sh/v1beta1
+      kind: K8sBlockPrivileged
+      metadata:
+        name: block-privileged-containers
+      spec:
+        match:
+          kinds:
+            - apiGroups: ["apps"]
+              kinds: ["Deployment"]
+          namespaces: ["default"]
+
+  # Policy 3: Require 'app' label on deployments
+  require_labels:
+    template:
+      apiVersion: templates.gatekeeper.sh/v1
+      kind: ConstraintTemplate
+      metadata:
+        name: k8srequiredlabels
+      spec:
+        crd:
+          spec:
+            names:
+              kind: K8sRequiredLabels
+            validation:
+              openAPIV3Schema:
+                type: object
+                properties:
+                  labels:
+                    type: array
+                    items:
+                      type: string
+        targets:
+          - target: admission.k8s.gatekeeper.sh
+            rego: |
+              package k8srequiredlabels
+              violation[{"msg": msg}] {
+                provided := {label | input.review.object.metadata.labels[label]}
+                required := {label | label := input.parameters.labels[_]}
+                missing := required - provided
+                count(missing) > 0
+                msg := sprintf("Missing required labels: %v", [missing])
+              }
+    constraint:
+      apiVersion: constraints.gatekeeper.sh/v1beta1
+      kind: K8sRequiredLabels
+      metadata:
+        name: require-app-label
+      spec:
+        match:
+          kinds:
+            - apiGroups: ["apps"]
+              kinds: ["Deployment"]
+          namespaces: ["default"]
+        parameters:
+          labels:
+            - "app"
+
+  # Policy 4: Only allow images from approved registries
+  allowed_registries:
+    template:
+      apiVersion: templates.gatekeeper.sh/v1
+      kind: ConstraintTemplate
+      metadata:
+        name: k8sallowedregistries
+      spec:
+        crd:
+          spec:
+            names:
+              kind: K8sAllowedRegistries
+            validation:
+              openAPIV3Schema:
+                type: object
+                properties:
+                  registries:
+                    type: array
+                    items:
+                      type: string
+        targets:
+          - target: admission.k8s.gatekeeper.sh
+            rego: |
+              package k8sallowedregistries
+              violation[{"msg": msg}] {
+                container := input.review.object.spec.template.spec.containers[_]
+                not startswith_any(container.image)
+                msg := sprintf("Image '%v' is not from an allowed registry. Allowed: %v", [container.image, input.parameters.registries])
+              }
+              startswith_any(image) {
+                registry := input.parameters.registries[_]
+                startswith(image, registry)
+              }
+    constraint:
+      apiVersion: constraints.gatekeeper.sh/v1beta1
+      kind: K8sAllowedRegistries
+      metadata:
+        name: allowed-registries
+      spec:
+        match:
+          kinds:
+            - apiGroups: ["apps"]
+              kinds: ["Deployment"]
+          namespaces: ["default"]
+        parameters:
+          registries:
+            - "pram821/"
+            - "docker.io/pram821/"
+
+# -------------------------------------------
 # Argo Namespace & RBAC
 # -------------------------------------------
 argo_namespace:
