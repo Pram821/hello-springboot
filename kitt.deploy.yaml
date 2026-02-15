@@ -1,0 +1,225 @@
+# -------------------------------------------
+# GitHub Actions CI/CD Pipeline
+# -------------------------------------------
+github_actions:
+  name: CI/CD Pipeline
+  on:
+    push:
+      branches: ['*']
+    pull_request:
+      branches: [main]
+
+  env:
+    IMAGE_NAME: pram821/hello-springboot
+
+  jobs:
+    # -----------------------------------------
+    # Stage 1: Build
+    # -----------------------------------------
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4
+          with:
+            java-version: '17'
+            distribution: temurin
+            cache: maven
+        - run: mvn clean package -DskipTests
+        - uses: actions/upload-artifact@v4
+          with:
+            name: jar
+            path: target/*.jar
+            retention-days: 1
+
+    # -----------------------------------------
+    # Stage 2: Test
+    # -----------------------------------------
+    test:
+      runs-on: ubuntu-latest
+      needs: build
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-java@v4
+          with:
+            java-version: '17'
+            distribution: temurin
+            cache: maven
+        - run: mvn test
+        - uses: dorny/test-reporter@v1
+          if: always()
+          with:
+            name: Test Results
+            path: target/surefire-reports/TEST-*.xml
+            reporter: java-junit
+
+    # -----------------------------------------
+    # Stage 3: Docker Build & Push
+    # -----------------------------------------
+    publish:
+      runs-on: ubuntu-latest
+      needs: test
+      if: github.ref == 'refs/heads/main'
+      steps:
+        - uses: actions/checkout@v4
+        - uses: actions/download-artifact@v4
+          with:
+            name: jar
+            path: target/
+        - uses: docker/login-action@v3
+          with:
+            username: ${{ secrets.DOCKERHUB_USERNAME }}
+            password: ${{ secrets.DOCKERHUB_TOKEN }}
+        - name: Build and push
+          run: |
+            IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)
+            docker build -t $IMAGE_NAME:$IMAGE_TAG .
+            docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+            docker push $IMAGE_NAME:$IMAGE_TAG
+            docker push $IMAGE_NAME:latest
+
+    # -----------------------------------------
+    # Stage 4: Deploy to Kubernetes
+    # -----------------------------------------
+    deploy:
+      runs-on: ubuntu-latest
+      needs: publish
+      if: github.ref == 'refs/heads/main'
+      environment: production
+      steps:
+        - uses: azure/setup-kubectl@v3
+        - uses: azure/k8s-set-context@v3
+          with:
+            kubeconfig: ${{ secrets.KUBECONFIG }}
+        - name: Deploy
+          run: |
+            IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)
+            cat <<EOF | kubectl apply -f -
+            apiVersion: apps/v1
+            kind: Deployment
+            metadata:
+              name: hello-springboot
+              labels:
+                app: hello-springboot
+                app.kubernetes.io/name: hello-springboot
+                app.kubernetes.io/managed-by: argocd
+            spec:
+              replicas: 2
+              selector:
+                matchLabels:
+                  app: hello-springboot
+              strategy:
+                type: RollingUpdate
+                rollingUpdate:
+                  maxSurge: 1
+                  maxUnavailable: 0
+              template:
+                metadata:
+                  labels:
+                    app: hello-springboot
+                spec:
+                  containers:
+                    - name: hello-springboot
+                      image: pram821/hello-springboot:$IMAGE_TAG
+                      imagePullPolicy: Always
+                      ports:
+                        - containerPort: 8080
+                      readinessProbe:
+                        httpGet:
+                          path: /
+                          port: 8080
+                        initialDelaySeconds: 15
+                        periodSeconds: 5
+                      livenessProbe:
+                        httpGet:
+                          path: /
+                          port: 8080
+                        initialDelaySeconds: 30
+                        periodSeconds: 10
+                      resources:
+                        requests:
+                          memory: "256Mi"
+                          cpu: "250m"
+                        limits:
+                          memory: "512Mi"
+                          cpu: "500m"
+            EOF
+            cat <<EOF | kubectl apply -f -
+            apiVersion: v1
+            kind: Service
+            metadata:
+              name: hello-springboot
+            spec:
+              type: NodePort
+              selector:
+                app: hello-springboot
+              ports:
+                - port: 8080
+                  targetPort: 8080
+            EOF
+            kubectl rollout status deployment/hello-springboot --timeout=120s
+
+# -------------------------------------------
+# Argo CD - GitOps Configuration
+# -------------------------------------------
+argocd:
+  project:
+    apiVersion: argoproj.io/v1alpha1
+    kind: AppProject
+    metadata:
+      name: hello-springboot
+      namespace: argocd
+    spec:
+      description: Hello Spring Boot application project
+      destinations:
+        - namespace: default
+          server: https://kubernetes.default.svc
+      sourceRepos:
+        - https://github.com/pram821/hello-springboot.git
+      namespaceResourceWhitelist:
+        - group: ''
+          kind: Service
+        - group: apps
+          kind: Deployment
+      roles:
+        - name: ci-role
+          description: Role for CI/CD pipeline
+          policies:
+            - p, proj:hello-springboot:ci-role, applications, sync, hello-springboot/*, allow
+            - p, proj:hello-springboot:ci-role, applications, get, hello-springboot/*, allow
+
+  application:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+      name: hello-springboot
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: hello-springboot
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: hello-springboot
+      source:
+        repoURL: https://github.com/pram821/hello-springboot.git
+        targetRevision: main
+        path: .
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+        retry:
+          limit: 3
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 1m
+
+
