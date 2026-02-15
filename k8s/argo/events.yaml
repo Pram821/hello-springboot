@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: EventBus
+metadata:
+  name: default
+  namespace: argo
+spec:
+  nats:
+    native:
+      replicas: 1
+---
+apiVersion: argoproj.io/v1alpha1
+kind: EventSource
+metadata:
+  name: github-webhook
+  namespace: argo
+spec:
+  eventBusName: default
+  service:
+    ports:
+      - port: 12000
+        targetPort: 12000
+  github:
+    hello-springboot:
+      repositories:
+        - owner: Pram821
+          names:
+            - hello-springboot
+      webhook:
+        endpoint: /push
+        port: "12000"
+        method: POST
+      events:
+        - push
+      apiToken:
+        name: github-access
+        key: token
+      webhookSecret:
+        name: github-access
+        key: secret
+      insecure: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Sensor
+metadata:
+  name: github-sensor
+  namespace: argo
+spec:
+  eventBusName: default
+  dependencies:
+    - name: github-push
+      eventSourceName: github-webhook
+      eventName: hello-springboot
+  triggers:
+    - template:
+        name: trigger-ci
+        argoWorkflow:
+          operation: submit
+          source:
+            resource:
+              apiVersion: argoproj.io/v1alpha1
+              kind: Workflow
+              metadata:
+                generateName: hello-springboot-ci-
+                namespace: argo
+              spec:
+                workflowTemplateRef:
+                  name: hello-springboot-ci
+          parameters:
+            - src:
+                dependencyName: github-push
+                dataKey: body.ref
+              dest: spec.arguments.parameters.0.value
