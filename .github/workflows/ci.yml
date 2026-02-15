@@ -33,6 +33,14 @@ jobs:
           cache: maven
       - name: Build
         run: mvn clean install -DskipTests -q
+      - name: Run Tests with JaCoCo
+        run: mvn test -pl common,persona -am -Dspring.autoconfigure.exclude=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - name: SonarQube Analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: mvn sonar:sonar -pl !functional-tests -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+        if: env.SONAR_TOKEN != ''
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
