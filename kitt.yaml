@@ -1,0 +1,166 @@
+Rname: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: pram821/hello-springboot
+
+jobs:
+  # -------------------------------------------
+  # Job 1: Build, Test, Docker Push
+  # -------------------------------------------
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.set-tag.outputs.tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: set-tag
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Run tests
+        run: mvn test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ steps.set-tag.outputs.tag }}
+
+  # -------------------------------------------
+  # Job 2: Deploy to Kubernetes
+  # -------------------------------------------
+  deploy:
+    runs-on: self-hosted
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update deployment image tag
+        run: |
+          sed -i "s|image: pram821/hello-springboot:.*|image: pram821/hello-springboot:${{ needs.build.outputs.image_tag }}|" k8s/deployment.yaml
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl rollout status deployment/hello-springboot --timeout=120s
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -l app=hello-springboot
+          kubectl get svc hello-springboot
+
+# -------------------------------------------
+# Kubernetes Manifests
+# -------------------------------------------
+kubernetes:
+  deployment:
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: hello-springboot
+      labels:
+        app: hello-springboot
+        app.kubernetes.io/name: hello-springboot
+        app.kubernetes.io/managed-by: argocd
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: hello-springboot
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+      template:
+        metadata:
+          labels:
+            app: hello-springboot
+        spec:
+          containers:
+            - name: hello-springboot
+              image: pram821/hello-springboot:latest
+              imagePullPolicy: Always
+              ports:
+                - containerPort: 8080
+              readinessProbe:
+                httpGet:
+                  path: /
+                  port: 8080
+                initialDelaySeconds: 15
+                periodSeconds: 5
+              livenessProbe:
+                httpGet:
+                  path: /
+                  port: 8080
+                initialDelaySeconds: 30
+                periodSeconds: 10
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "250m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+
+  service:
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: hello-springboot
+    spec:
+      type: NodePort
+      selector:
+        app: hello-springboot
+      ports:
+        - port: 8080
+          targetPort: 8080
