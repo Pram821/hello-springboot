@@ -223,6 +223,69 @@ argocd:
             maxDuration: 1m
 
 # -------------------------------------------
+# Argo Namespace & RBAC
+# -------------------------------------------
+argo_namespace:
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: argo
+
+argo_rbac:
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: argo-default-admin
+    namespace: argo
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: admin
+  subjects:
+    - kind: ServiceAccount
+      name: default
+      namespace: argo
+
+# -------------------------------------------
+# Argo Server - UI Configuration
+# -------------------------------------------
+argo_server:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: argo-server
+    namespace: argo
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: argo-server
+    template:
+      metadata:
+        labels:
+          app: argo-server
+      spec:
+        serviceAccountName: argo-server
+        containers:
+          - name: argo-server
+            image: quay.io/argoproj/argocli:v3.5.5
+            args:
+              - server
+              - --auth-mode
+              - server
+              - --secure=false
+              - --access-control-allow-origin=*
+            ports:
+              - containerPort: 2746
+                name: web
+            readinessProbe:
+              httpGet:
+                path: /
+                port: 2746
+                scheme: HTTP
+              initialDelaySeconds: 10
+
+# -------------------------------------------
 # Argo Events - EventBus for CI Pipeline
 # -------------------------------------------
 eventbus:
@@ -233,7 +296,8 @@ eventbus:
     namespace: argo
   spec:
     nats:
-      native: {}
+      native:
+        replicas: 1
 
 # -------------------------------------------
 # Argo Workflows - CI Pipeline
@@ -264,7 +328,7 @@ argo_workflows:
             accessModes: [ReadWriteOnce]
             resources:
               requests:
-                storage: 1Gi
+                storage: 500Mi
       templates:
         - name: ci-pipeline
           steps:
@@ -274,8 +338,14 @@ argo_workflows:
                 template: build
             - - name: test
                 template: test
+            - - name: get-tag
+                template: get-tag
             - - name: docker-build-push
                 template: docker-build-push
+                arguments:
+                  parameters:
+                    - name: tag
+                      value: "{{steps.get-tag.outputs.result}}"
 
         - name: checkout
           container:
@@ -284,7 +354,6 @@ argo_workflows:
             args:
               - |
                 git clone --branch {{workflow.parameters.branch}} {{workflow.parameters.repo-url}} /workspace/src
-                cd /workspace/src && git rev-parse --short HEAD > /workspace/image-tag.txt
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -294,9 +363,7 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - |
-                cd /workspace/src
-                mvn clean package -DskipTests
+              - cd /workspace/src && mvn clean package -DskipTests
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -306,14 +373,25 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - |
-                cd /workspace/src
-                mvn test
+              - cd /workspace/src && mvn test
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: get-tag
+          container:
+            image: alpine/git:latest
+            command: [sh, -c]
+            args:
+              - cd /workspace/src && git rev-parse --short HEAD
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
 
         - name: docker-build-push
+          inputs:
+            parameters:
+              - name: tag
           volumes:
             - name: docker-config
               secret:
@@ -323,7 +401,7 @@ argo_workflows:
             args:
               - --dockerfile=/workspace/src/Dockerfile
               - --context=/workspace/src
-              - --destination={{workflow.parameters.image}}:$(cat /workspace/image-tag.txt)
+              - --destination={{workflow.parameters.image}}:{{inputs.parameters.tag}}
               - --destination={{workflow.parameters.image}}:latest
             volumeMounts:
               - name: workspace
@@ -362,6 +440,7 @@ argo_workflows:
           webhookSecret:
             name: github-access
             key: secret
+          insecure: true
 
   # Sensor - Trigger workflow on push events
   sensor:
@@ -401,5 +480,4 @@ argo_workflows:
                     dataKey: body.ref
                   dest: spec.arguments.parameters.0.value
                   operation: append
-
 
