@@ -314,6 +314,10 @@ argo_workflows:
                 mountPath: /workspace
 
         - name: docker-build-push
+          volumes:
+            - name: docker-config
+              secret:
+                secretName: dockerhub-credentials
           container:
             image: gcr.io/kaniko-project/executor:latest
             args:
@@ -326,10 +330,6 @@ argo_workflows:
                 mountPath: /workspace
               - name: docker-config
                 mountPath: /kaniko/.docker
-          volumes:
-            - name: docker-config
-              secret:
-                secretName: dockerhub-credentials
 
   # Event Source - Listen for GitHub webhooks
   event_source:

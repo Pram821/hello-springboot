@@ -1,0 +1,15 @@
+name: Auto Trigger Argo Workflow
+
+on:
+  push:
+    branches: ['*']
+
+jobs:
+  trigger-workflow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Argo Workflow via Webhook
+        run: |
+          echo "Workflow triggered on push to ${{ github.ref }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
