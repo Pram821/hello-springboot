@@ -1,0 +1,54 @@
+type Query {
+    campaigns: [Campaign]
+    campaignById(id: String!): Campaign
+    campaignPartnerItems: [CampaignPartnerItem]
+    campaignPartnerItemById(id: String!): CampaignPartnerItem
+}
+
+type Mutation {
+    createCampaign(input: CampaignInput!): Campaign
+    createCampaignPartnerItem(input: CampaignPartnerItemInput!): CampaignPartnerItem
+}
+
+type Campaign {
+    campaignId: String
+    campaignName: String
+    campaignType: String
+    campaignStatus: String
+    startDate: String
+    endDate: String
+    createdBy: String
+    createdDate: String
+    modifiedBy: String
+    modifiedDate: String
+    entityVersion: Int
+}
+
+type CampaignPartnerItem {
+    campaignPartnerItemId: String
+    partnerId: String
+    itemId: String
+    retailPrice: Float
+    promoPrice: Float
+    source: String
+    createdBy: String
+    entityVersion: Int
+}
+
+input CampaignInput {
+    name: String!
+    campaignType: String!
+    campaignStatus: String!
+    createdBy: String
+}
+
+input CampaignPartnerItemInput {
+    campaignPartnerId: String!
+    campaignPk: String
+    partnerId: String
+    itemId: String!
+    retailPrice: Float
+    promoPrice: Float
+    source: String
+    createdBy: String
+}

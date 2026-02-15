@@ -1,0 +1,151 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: Banklogin!3
+          MYSQL_DATABASE: pramsqldb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build
+        run: mvn clean install -DskipTests -q
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: persona/target/persona-*.jar
+          retention-days: 1
+
+  functional-tests:
+    name: Functional Tests
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: Banklogin!3
+          MYSQL_DATABASE: pramsqldb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Run Functional Tests
+        run: mvn clean test -pl functional-tests -am
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functional-test-reports
+          path: functional-tests/target/cucumber-reports/
+
+  contract-tests:
+    name: Contract Tests
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: Banklogin!3
+          MYSQL_DATABASE: pramsqldb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Run Contract Tests
+        run: mvn clean test -pl persona -am
+      - name: Upload contract stubs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-stubs
+          path: persona/target/stubs/
+
+  perf-tests:
+    name: Performance Tests
+    needs: [functional-tests, contract-tests]
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: Banklogin!3
+          MYSQL_DATABASE: pramsqldb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build project
+        run: mvn clean install -DskipTests -q
+      - name: Start application
+        run: |
+          cd persona
+          java -jar target/persona-*.jar --logging.config= &
+          sleep 20
+          curl -f http://localhost:8080/seller-center/ || exit 1
+      - name: Run Gatling Performance Tests
+        run: mvn gatling:test -pl persona
+      - name: Upload Gatling reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-reports
+          path: persona/target/gatling/

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="openobserve" class="com.example.hello.common.OpenObserveLogAppender">
+        <url>http://localhost:5080/api/default/logs/_json</url>
+        <username>admin@example.com</username>
+        <password>Complexpass#123</password>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="openobserve" />
+    </root>
+</configuration>

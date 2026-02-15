@@ -7,7 +7,7 @@
   <groupId>com.example</groupId>
   <artifactId>hello-springboot</artifactId>
   <version>0.0.1-SNAPSHOT</version>
-  <packaging>jar</packaging>
+  <packaging>pom</packaging>
 
   <parent>
     <groupId>org.springframework.boot</groupId>
@@ -20,23 +20,53 @@
     <java.version>17</java.version>
   </properties>
 
-  <dependencies>
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-web</artifactId>
-    </dependency>
-    <dependency><groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
+  <modules>
+    <module>common</module>
+    <module>mx-region</module>
+    <module>chl-region</module>
+    <module>canada-region</module>
+    <module>us-region</module>
+    <module>persona</module>
+    <module>functional-tests</module>
+  </modules>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-    </plugins>
-  </build>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>common</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>persona</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>mx-region</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>chl-region</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>canada-region</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>us-region</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.example</groupId>
+        <artifactId>mp-cmd-flashpicks-common-lib</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 </project>

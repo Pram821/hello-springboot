@@ -1,12 +1,23 @@
 FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /app
 COPY pom.xml .
-RUN mvn dependency:go-offline
-COPY src ./src
-RUN mvn package -DskipTests
+COPY common/pom.xml common/pom.xml
+COPY persona/pom.xml persona/pom.xml
+COPY mx-region/pom.xml mx-region/pom.xml
+COPY chl-region/pom.xml chl-region/pom.xml
+COPY canada-region/pom.xml canada-region/pom.xml
+COPY us-region/pom.xml us-region/pom.xml
+RUN mvn dependency:go-offline -q || true
+COPY common common
+COPY persona persona
+COPY mx-region mx-region
+COPY chl-region chl-region
+COPY canada-region canada-region
+COPY us-region us-region
+RUN mvn package -DskipTests -q
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/persona/target/persona-*.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
