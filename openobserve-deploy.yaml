@@ -1,0 +1,77 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openobserve-data
+  namespace: openobserve
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openobserve
+  namespace: openobserve
+spec:
+  serviceName: openobserve
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openobserve
+  template:
+    metadata:
+      labels:
+        app: openobserve
+    spec:
+      containers:
+      - name: openobserve
+        image: public.ecr.aws/zinclabs/openobserve:v0.12.1
+        ports:
+        - containerPort: 5080
+          name: http
+        - containerPort: 5081
+          name: grpc
+        env:
+        - name: ZO_ROOT_USER_EMAIL
+          value: "admin@example.com"
+        - name: ZO_ROOT_USER_PASSWORD
+          value: "Complexpass#123"
+        - name: ZO_DATA_DIR
+          value: "/data"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: openobserve-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openobserve
+  namespace: openobserve
+spec:
+  type: NodePort
+  ports:
+  - port: 5080
+    targetPort: 5080
+    nodePort: 30050
+    name: http
+  - port: 5081
+    targetPort: 5081
+    nodePort: 30051
+    name: grpc
+  selector:
+    app: openobserve

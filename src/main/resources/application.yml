@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: hello-springboot
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://openobserve.openobserve.svc.cluster.local:5081
