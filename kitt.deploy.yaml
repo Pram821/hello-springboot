@@ -346,6 +346,12 @@ argo_workflows:
                   parameters:
                     - name: tag
                       value: "{{steps.get-tag.outputs.result}}"
+            - - name: deploy
+                template: deploy
+                arguments:
+                  parameters:
+                    - name: tag
+                      value: "{{steps.get-tag.outputs.result}}"
 
         - name: checkout
           container:
@@ -408,6 +414,19 @@ argo_workflows:
                 mountPath: /workspace
               - name: docker-config
                 mountPath: /kaniko/.docker
+
+        - name: deploy
+          inputs:
+            parameters:
+              - name: tag
+          serviceAccountName: default
+          container:
+            image: bitnami/kubectl:latest
+            command: [sh, -c]
+            args:
+              - |
+                kubectl set image deployment/hello-springboot hello-springboot={{workflow.parameters.image}}:{{inputs.parameters.tag}} -n default
+                kubectl rollout status deployment/hello-springboot -n default --timeout=120s
 
   # Event Source - Listen for GitHub webhooks
   event_source:
