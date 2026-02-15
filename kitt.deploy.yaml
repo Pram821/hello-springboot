@@ -332,6 +332,12 @@ argo_workflows:
       templates:
         - name: ci-pipeline
           steps:
+            - - name: notify-start
+                template: slack-notify
+                arguments:
+                  parameters:
+                    - name: message
+                      value: "🚀 *Pipeline Started*\n📦 Repo: {{workflow.parameters.repo-url}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}"
             - - name: checkout
                 template: checkout
             - - name: build
@@ -352,6 +358,12 @@ argo_workflows:
                   parameters:
                     - name: tag
                       value: "{{steps.get-tag.outputs.result}}"
+            - - name: notify-success
+                template: slack-notify
+                arguments:
+                  parameters:
+                    - name: message
+                      value: "✅ *Pipeline Succeeded*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}"
 
         - name: checkout
           container:
@@ -427,6 +439,26 @@ argo_workflows:
               - |
                 kubectl set image deployment/hello-springboot hello-springboot={{workflow.parameters.image}}:{{inputs.parameters.tag}} -n default
                 kubectl rollout status deployment/hello-springboot -n default --timeout=120s
+
+        - name: slack-notify
+          inputs:
+            parameters:
+              - name: message
+          container:
+            image: curlimages/curl:latest
+            command: [sh, -c]
+            args:
+              - |
+                curl -s -X POST $(cat /secret/url) \
+                  -H 'Content-Type: application/json' \
+                  -d '{"text":"{{inputs.parameters.message}}"}'
+            volumeMounts:
+              - name: slack-secret
+                mountPath: /secret
+          volumes:
+            - name: slack-secret
+              secret:
+                secretName: slack-webhook
 
   # Event Source - Listen for GitHub webhooks
   event_source:
