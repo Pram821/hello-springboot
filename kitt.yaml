@@ -1,102 +1,79 @@
-Rname: CI/CD Pipeline
+stages:
+  - build
+  - test
+  - publish
+  - deploy
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-env:
+variables:
   IMAGE_NAME: pram821/hello-springboot
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
 
-jobs:
-  # -------------------------------------------
-  # Job 1: Build, Test, Docker Push
-  # -------------------------------------------
-  build:
-    runs-on: ubuntu-latest
-    outputs:
-      image_tag: ${{ steps.set-tag.outputs.tag }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+cache:
+  paths:
+    - .m2/repository
 
-      - name: Set image tag
-        id: set-tag
-        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+# -------------------------------------------
+# Stage 1: Build
+# -------------------------------------------
+build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn clean package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1 hour
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
+# -------------------------------------------
+# Stage 2: Test
+# -------------------------------------------
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  script:
+    - mvn test
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml
 
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+# -------------------------------------------
+# Stage 3: Docker Build & Push
+# -------------------------------------------
+publish:
+  stage: publish
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+  script:
+    - export IMAGE_TAG=$(echo $CI_COMMIT_SHA | cut -c1-7)
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    - docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+    - docker push $IMAGE_NAME:latest
+  only:
+    - main
 
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
-
-      - name: Run tests
-        run: mvn test
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: target/surefire-reports/
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-jar
-          path: target/*.jar
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.set-tag.outputs.tag }}
-
-  # -------------------------------------------
-  # Job 2: Deploy to Kubernetes
-  # -------------------------------------------
-  deploy:
-    runs-on: self-hosted
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Update deployment image tag
-        run: |
-          sed -i "s|image: pram821/hello-springboot:.*|image: pram821/hello-springboot:${{ needs.build.outputs.image_tag }}|" k8s/deployment.yaml
-
-      - name: Apply Kubernetes manifests
-        run: |
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl rollout status deployment/hello-springboot --timeout=120s
-
-      - name: Verify deployment
-        run: |
-          kubectl get pods -l app=hello-springboot
-          kubectl get svc hello-springboot
+# -------------------------------------------
+# Stage 4: Deploy to Kubernetes
+# -------------------------------------------
+deploy:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  before_script:
+    - export IMAGE_TAG=$(echo $CI_COMMIT_SHA | cut -c1-7)
+  script:
+    - sed -i "s|image: pram821/hello-springboot:.*|image: pram821/hello-springboot:$IMAGE_TAG|" k8s/deployment.yaml
+    - kubectl apply -f k8s/deployment.yaml
+    - kubectl apply -f k8s/service.yaml
+    - kubectl rollout status deployment/hello-springboot --timeout=120s
+  environment:
+    name: production
+  only:
+    - main
 
 # -------------------------------------------
 # Kubernetes Manifests
