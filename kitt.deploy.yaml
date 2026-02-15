@@ -223,6 +223,19 @@ argocd:
             maxDuration: 1m
 
 # -------------------------------------------
+# Argo Events - EventBus for CI Pipeline
+# -------------------------------------------
+eventbus:
+  apiVersion: argoproj.io/v1alpha1
+  kind: EventBus
+  metadata:
+    name: default
+    namespace: argo
+  spec:
+    nats:
+      native: {}
+
+# -------------------------------------------
 # Argo Workflows - CI Pipeline
 # -------------------------------------------
 argo_workflows:
@@ -326,6 +339,7 @@ argo_workflows:
       name: github-webhook
       namespace: argo
     spec:
+      eventBusName: default
       service:
         ports:
           - port: 12000
@@ -357,6 +371,7 @@ argo_workflows:
       name: github-sensor
       namespace: argo
     spec:
+      eventBusName: default
       dependencies:
         - name: github-push
           eventSourceName: github-webhook
