@@ -614,7 +614,7 @@ argo_workflows:
             command: [sh, -c]
             args:
               - |
-                kubectl set image deployment/hello-springboot hello-springboot={{workflow.parameters.image}}:{{inputs.parameters.tag}} -n default
+                kubectl patch deployment hello-springboot -n default -p '{"spec":{"template":{"metadata":{"labels":{"app":"hello-springboot"}},"spec":{"containers":[{"name":"hello-springboot","image":"{{workflow.parameters.image}}:{{inputs.parameters.tag}}","resources":{"requests":{"memory":"256Mi","cpu":"250m"},"limits":{"memory":"512Mi","cpu":"500m"}}}]}}}}'
                 kubectl rollout status deployment/hello-springboot -n default --timeout=120s
 
         - name: slack-notify
