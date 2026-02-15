@@ -222,4 +222,169 @@ argocd:
             factor: 2
             maxDuration: 1m
 
+# -------------------------------------------
+# Argo Workflows - CI Pipeline
+# -------------------------------------------
+argo_workflows:
+  workflow_template:
+    apiVersion: argoproj.io/v1alpha1
+    kind: WorkflowTemplate
+    metadata:
+      name: hello-springboot-ci
+      namespace: argo
+      labels:
+        app: hello-springboot
+    spec:
+      entrypoint: ci-pipeline
+      arguments:
+        parameters:
+          - name: repo-url
+            value: https://github.com/Pram821/hello-springboot.git
+          - name: branch
+            value: main
+          - name: image
+            value: pram821/hello-springboot
+      volumeClaimTemplates:
+        - metadata:
+            name: workspace
+          spec:
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests:
+                storage: 1Gi
+      templates:
+        - name: ci-pipeline
+          steps:
+            - - name: checkout
+                template: checkout
+            - - name: build
+                template: build
+            - - name: test
+                template: test
+            - - name: docker-build-push
+                template: docker-build-push
+
+        - name: checkout
+          container:
+            image: alpine/git:latest
+            command: [sh, -c]
+            args:
+              - |
+                git clone --branch {{workflow.parameters.branch}} {{workflow.parameters.repo-url}} /workspace/src
+                cd /workspace/src && git rev-parse --short HEAD > /workspace/image-tag.txt
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: build
+          container:
+            image: maven:3.9-eclipse-temurin-17
+            command: [sh, -c]
+            args:
+              - |
+                cd /workspace/src
+                mvn clean package -DskipTests
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: test
+          container:
+            image: maven:3.9-eclipse-temurin-17
+            command: [sh, -c]
+            args:
+              - |
+                cd /workspace/src
+                mvn test
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: docker-build-push
+          container:
+            image: gcr.io/kaniko-project/executor:latest
+            args:
+              - --dockerfile=/workspace/src/Dockerfile
+              - --context=/workspace/src
+              - --destination={{workflow.parameters.image}}:$(cat /workspace/image-tag.txt)
+              - --destination={{workflow.parameters.image}}:latest
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+              - name: docker-config
+                mountPath: /kaniko/.docker
+          volumes:
+            - name: docker-config
+              secret:
+                secretName: dockerhub-credentials
+
+  # Event Source - Listen for GitHub webhooks
+  event_source:
+    apiVersion: argoproj.io/v1alpha1
+    kind: EventSource
+    metadata:
+      name: github-webhook
+      namespace: argo
+    spec:
+      service:
+        ports:
+          - port: 12000
+            targetPort: 12000
+      github:
+        hello-springboot:
+          repositories:
+            - owner: Pram821
+              names:
+                - hello-springboot
+          webhook:
+            endpoint: /push
+            port: "12000"
+            method: POST
+          events:
+            - push
+          apiToken:
+            name: github-access
+            key: token
+          webhookSecret:
+            name: github-access
+            key: secret
+
+  # Sensor - Trigger workflow on push events
+  sensor:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Sensor
+    metadata:
+      name: github-sensor
+      namespace: argo
+    spec:
+      dependencies:
+        - name: github-push
+          eventSourceName: github-webhook
+          eventName: hello-springboot
+      triggers:
+        - template:
+            name: trigger-ci
+            argoWorkflow:
+              operation: submit
+              source:
+                resource:
+                  apiVersion: argoproj.io/v1alpha1
+                  kind: Workflow
+                  metadata:
+                    generateName: hello-springboot-ci-
+                    namespace: argo
+                  spec:
+                    workflowTemplateRef:
+                      name: hello-springboot-ci
+                    arguments:
+                      parameters:
+                        - name: branch
+                          value: ""
+              parameters:
+                - src:
+                    dependencyName: github-push
+                    dataKey: body.ref
+                  dest: spec.arguments.parameters.0.value
+                  operation: append
+
 
