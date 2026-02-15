@@ -337,7 +337,7 @@ argo_workflows:
                 arguments:
                   parameters:
                     - name: message
-                      value: "🚀 *Pipeline Started*\n📦 Repo: {{workflow.parameters.repo-url}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}"
+                      value: "🚀 *Pipeline Started*\n📦 Repo: {{workflow.parameters.repo-url}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
             - - name: checkout
                 template: checkout
             - - name: build
@@ -363,7 +363,7 @@ argo_workflows:
                 arguments:
                   parameters:
                     - name: message
-                      value: "✅ *Pipeline Succeeded*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}"
+                      value: "✅ *Pipeline Succeeded*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
 
         - name: checkout
           container:
