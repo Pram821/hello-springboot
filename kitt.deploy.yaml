@@ -344,6 +344,12 @@ argo_workflows:
                 template: build
             - - name: test
                 template: test
+            - - name: notify-build-done
+                template: slack-notify
+                arguments:
+                  parameters:
+                    - name: message
+                      value: "✅ *Build & Tests Passed*\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
             - - name: get-tag
                 template: get-tag
             - - name: docker-build-push
@@ -352,6 +358,12 @@ argo_workflows:
                   parameters:
                     - name: tag
                       value: "{{steps.get-tag.outputs.result}}"
+            - - name: notify-deploying
+                template: slack-notify
+                arguments:
+                  parameters:
+                    - name: message
+                      value: "🐳 *Docker Image Pushed* — Now Deploying...\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
             - - name: deploy
                 template: deploy
                 arguments:
@@ -363,7 +375,7 @@ argo_workflows:
                 arguments:
                   parameters:
                     - name: message
-                      value: "✅ *Pipeline Succeeded*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
+                      value: "🎉 *Deployment Successful!*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
 
         - name: checkout
           container:
