@@ -27,6 +27,14 @@ RUN mvn package -DskipTests -q -pl !functional-tests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.1.0/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 COPY --from=build /app/persona/target/persona-*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENV OTEL_JAVAAGENT_ENABLED=false
+ENTRYPOINT ["java", \
+  "-javaagent:/app/opentelemetry-javaagent.jar", \
+  "-Dotel.service.name=hello-springboot", \
+  "-Dotel.traces.exporter=otlp", \
+  "-Dotel.metrics.exporter=none", \
+  "-Dotel.logs.exporter=none", \
+  "-jar", "app.jar"]

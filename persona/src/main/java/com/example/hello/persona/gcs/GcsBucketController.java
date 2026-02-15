@@ -7,6 +7,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.mp.flashpicks.common.dto.CampaignPartnerItemInput;
 import com.mp.flashpicks.common.entity.CampaignPartnerItem;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -39,6 +40,7 @@ public class GcsBucketController {
     }
 
     @PostMapping("/import-items")
+    @Timed(value = "gcs.import_items", description = "Time taken to import items from GCS")
     public ResponseEntity<Map<String, Object>> importItemsFromBucket(
             @RequestParam String bucketName,
             @RequestParam String fileName) {

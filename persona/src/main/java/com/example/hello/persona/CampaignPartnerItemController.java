@@ -5,6 +5,7 @@ import com.example.hello.common.exception.ResourceNotFoundException;
 import com.example.hello.persona.kafka.CampaignEventProducer;
 import com.mp.flashpicks.common.dto.CampaignPartnerItemInput;
 import com.mp.flashpicks.common.entity.CampaignPartnerItem;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -45,6 +46,7 @@ public class CampaignPartnerItemController {
     }
 
     @GetMapping
+    @Timed(value = "partner_items.getAll", description = "Time taken to get all partner items")
     public ResponseEntity<List<CampaignPartnerItem>> getAllItems() {
         itemGetCounter.increment();
         log.info("GET /api/campaign-partner-items called");
@@ -52,6 +54,7 @@ public class CampaignPartnerItemController {
     }
 
     @GetMapping("/{itemId}")
+    @Timed(value = "partner_items.getById", description = "Time taken to get partner item by ID")
     public ResponseEntity<CampaignPartnerItem> getItemById(@PathVariable String itemId) {
         itemGetCounter.increment();
         log.info("GET /api/campaign-partner-items/{} called", itemId);
@@ -63,6 +66,7 @@ public class CampaignPartnerItemController {
     }
 
     @PostMapping
+    @Timed(value = "partner_items.create", description = "Time taken to create a partner item")
     public ResponseEntity<CampaignPartnerItem> createItem(@RequestBody CampaignPartnerItemInput input) {
         itemCreateCounter.increment();
         log.info("POST /api/campaign-partner-items called");

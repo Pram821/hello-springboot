@@ -4,6 +4,7 @@ import com.example.hello.common.CampaignPartnerItemService;
 import com.example.hello.common.exception.ResourceNotFoundException;
 import com.mp.flashpicks.common.dto.CampaignPartnerItemInput;
 import com.mp.flashpicks.common.entity.CampaignPartnerItem;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ public class CampaignPartnerItemGraphqlController {
     }
 
     @QueryMapping
+    @Timed(value = "graphql.partner_items.query", description = "Time taken for GraphQL partnerItems query")
     public List<CampaignPartnerItem> campaignPartnerItems() {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaignPartnerItems");
@@ -43,6 +45,7 @@ public class CampaignPartnerItemGraphqlController {
     }
 
     @QueryMapping
+    @Timed(value = "graphql.partner_items.queryById", description = "Time taken for GraphQL partnerItemById query")
     public CampaignPartnerItem campaignPartnerItemById(@Argument String id) {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaignPartnerItemById({})", id);
@@ -54,6 +57,7 @@ public class CampaignPartnerItemGraphqlController {
     }
 
     @MutationMapping
+    @Timed(value = "graphql.partner_items.mutation", description = "Time taken for GraphQL createPartnerItem mutation")
     public CampaignPartnerItem createCampaignPartnerItem(@Argument Map<String, Object> input) {
         gqlMutationCounter.increment();
         log.info("GraphQL mutation: createCampaignPartnerItem");

@@ -5,6 +5,7 @@ import com.example.hello.common.exception.ResourceNotFoundException;
 import com.example.hello.persona.kafka.CampaignEventProducer;
 import com.mp.flashpicks.common.dto.CampaignRequest;
 import com.mp.flashpicks.common.entity.Campaign;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -45,6 +46,7 @@ public class CampaignController {
     }
 
     @GetMapping
+    @Timed(value = "campaigns.getAll", description = "Time taken to get all campaigns")
     public ResponseEntity<List<Campaign>> getAllCampaigns() {
         campaignGetCounter.increment();
         log.info("GET /api/campaigns called");
@@ -52,6 +54,7 @@ public class CampaignController {
     }
 
     @GetMapping("/{campaignId}")
+    @Timed(value = "campaigns.getById", description = "Time taken to get campaign by ID")
     public ResponseEntity<Campaign> getCampaignById(@PathVariable String campaignId) {
         campaignGetCounter.increment();
         log.info("GET /api/campaigns/{} called", campaignId);
@@ -63,6 +66,7 @@ public class CampaignController {
     }
 
     @PostMapping
+    @Timed(value = "campaigns.create", description = "Time taken to create a campaign")
     public ResponseEntity<Campaign> createCampaign(@RequestBody CampaignRequest request) {
         campaignCreateCounter.increment();
         log.info("POST /api/campaigns called");

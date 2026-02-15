@@ -1,6 +1,7 @@
 package com.example.hello.persona;
 
 import com.example.hello.common.RegionService;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -40,6 +41,7 @@ public class HelloController {
     }
 
     @GetMapping("/")
+    @Timed(value = "seller_center.hello", description = "Time taken for hello endpoint")
     public String hello() {
         helloCounter.increment();
         log.info("GET /seller-center/ called");
@@ -47,6 +49,7 @@ public class HelloController {
     }
 
     @GetMapping("/hello2")
+    @Timed(value = "seller_center.hello2", description = "Time taken for hello2 endpoint")
     public String hello2() {
         helloCounter.increment();
         log.info("GET /seller-center/hello2 called");
@@ -54,6 +57,7 @@ public class HelloController {
     }
 
     @GetMapping("/hello3")
+    @Timed(value = "seller_center.hello3", description = "Time taken for hello3 endpoint")
     public String hello3() {
         helloCounter.increment();
         log.info("GET /seller-center/hello3 called");
@@ -61,6 +65,7 @@ public class HelloController {
     }
 
     @GetMapping("/hello4")
+    @Timed(value = "seller_center.hello4", description = "Time taken for hello4 endpoint")
     public String hello4() {
         helloCounter.increment();
         log.info("GET /seller-center/hello4 called");
@@ -68,6 +73,7 @@ public class HelloController {
     }
 
     @GetMapping("/hello5")
+    @Timed(value = "seller_center.hello5", description = "Time taken for hello5 endpoint")
     public String hello5() {
         helloCounter.increment();
         log.info("GET /seller-center/hello5 called");
@@ -75,6 +81,7 @@ public class HelloController {
     }
 
     @GetMapping("/region")
+    @Timed(value = "seller_center.region", description = "Time taken for region endpoint")
     public String regionRequest(@RequestParam String region, @RequestParam String request) {
         regionCounter.increment();
         log.info("GET /seller-center/region called with region={}, request={}", region, request);

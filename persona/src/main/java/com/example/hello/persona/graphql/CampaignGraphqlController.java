@@ -4,6 +4,7 @@ import com.example.hello.common.CampaignService;
 import com.example.hello.common.exception.ResourceNotFoundException;
 import com.mp.flashpicks.common.dto.CampaignRequest;
 import com.mp.flashpicks.common.entity.Campaign;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ public class CampaignGraphqlController {
     }
 
     @QueryMapping
+    @Timed(value = "graphql.campaigns.query", description = "Time taken for GraphQL campaigns query")
     public List<Campaign> campaigns() {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaigns");
@@ -43,6 +45,7 @@ public class CampaignGraphqlController {
     }
 
     @QueryMapping
+    @Timed(value = "graphql.campaigns.queryById", description = "Time taken for GraphQL campaignById query")
     public Campaign campaignById(@Argument String id) {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaignById({})", id);
@@ -54,6 +57,7 @@ public class CampaignGraphqlController {
     }
 
     @MutationMapping
+    @Timed(value = "graphql.campaigns.mutation", description = "Time taken for GraphQL createCampaign mutation")
     public Campaign createCampaign(@Argument Map<String, String> input) {
         gqlMutationCounter.increment();
         log.info("GraphQL mutation: createCampaign");
