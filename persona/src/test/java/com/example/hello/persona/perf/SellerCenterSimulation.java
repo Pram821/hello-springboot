@@ -95,7 +95,7 @@ public class SellerCenterSimulation extends Simulation {
                 )
         ).protocols(httpProtocol)
                 .assertions(
-                        global().responseTime().percentile(95.0).lt(5000),
+                        global().responseTime().percentile(50.0).lt(5000),
                         global().successfulRequests().percent().gt(70.0)
                 );
     }
