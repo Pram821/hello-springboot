@@ -588,7 +588,7 @@ argo_workflows:
                   -DartifactId=mp-cmd-flashpicks-common-lib \
                   -Dversion=0.0.1-SNAPSHOT \
                   -Dpackaging=jar
-                mvn clean package -DskipTests
+                mvn clean install -DskipTests
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
