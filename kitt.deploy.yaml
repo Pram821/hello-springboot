@@ -524,12 +524,16 @@ argo_workflows:
                 template: build
             - - name: test
                 template: test
+            - - name: contract-test
+                template: contract-test
+            - - name: functional-test
+                template: functional-test
             - - name: notify-build-done
                 template: slack-notify
                 arguments:
                   parameters:
                     - name: message
-                      value: "✅ *Build & Tests Passed*\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
+                      value: "✅ *Build & All Tests Passed*\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
             - - name: get-tag
                 template: get-tag
             - - name: docker-build-push
@@ -550,12 +554,14 @@ argo_workflows:
                   parameters:
                     - name: tag
                       value: "{{steps.get-tag.outputs.result}}"
+            - - name: performance-test
+                template: performance-test
             - - name: notify-success
                 template: slack-notify
                 arguments:
                   parameters:
                     - name: message
-                      value: "🎉 *Deployment Successful!*\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
+                      value: "🎉 *Pipeline Complete!*\n✅ Unit, Contract, Functional & Performance Tests Passed\n📦 Image: {{workflow.parameters.image}}:{{steps.get-tag.outputs.result}}\n🌿 Branch: {{workflow.parameters.branch}}\n🔗 Workflow: {{workflow.name}}\n📊 <http://localhost:2746/workflows/argo/{{workflow.name}}|View Pipeline Logs>"
 
         - name: checkout
           container:
@@ -584,6 +590,36 @@ argo_workflows:
             command: [sh, -c]
             args:
               - cd /workspace/src && mvn test
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: contract-test
+          container:
+            image: maven:3.9-eclipse-temurin-17
+            command: [sh, -c]
+            args:
+              - cd /workspace/src && mvn verify -pl persona -am -Pcontract-tests -DskipUnitTests=true
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: functional-test
+          container:
+            image: maven:3.9-eclipse-temurin-17
+            command: [sh, -c]
+            args:
+              - cd /workspace/src && mvn verify -pl functional-tests -am -DskipUnitTests=true
+            volumeMounts:
+              - name: workspace
+                mountPath: /workspace
+
+        - name: performance-test
+          container:
+            image: maven:3.9-eclipse-temurin-17
+            command: [sh, -c]
+            args:
+              - cd /workspace/src && mvn gatling:test -pl persona -am
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
