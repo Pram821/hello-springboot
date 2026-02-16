@@ -690,7 +690,7 @@ argo_workflows:
               - |
                 cd /workspace/src
                 mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
-                mvn gatling:test -pl persona -am
+                mvn io.gatling:gatling-maven-plugin:test -pl persona -am -Dgatling.baseUrl=http://hello-springboot.default.svc.cluster.local:8080
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -713,18 +713,29 @@ argo_workflows:
             - name: docker-config
               secret:
                 secretName: dockerhub-credentials
+            - name: docker-sock
+              hostPath:
+                path: /var/run/docker.sock
+                type: Socket
           container:
-            image: gcr.io/kaniko-project/executor:latest
+            image: docker:24-cli
+            command: [sh, -c]
             args:
-              - --dockerfile=/workspace/src/Dockerfile
-              - --context=/workspace/src
-              - --destination={{workflow.parameters.image}}:{{inputs.parameters.tag}}
-              - --destination={{workflow.parameters.image}}:latest
+              - |
+                mkdir -p /root/.docker
+                cp /docker-creds/config.json /root/.docker/config.json
+                cd /workspace/src
+                docker build -t {{workflow.parameters.image}}:{{inputs.parameters.tag}} -t {{workflow.parameters.image}}:latest .
+                docker push {{workflow.parameters.image}}:{{inputs.parameters.tag}}
+                docker push {{workflow.parameters.image}}:latest
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
               - name: docker-config
-                mountPath: /kaniko/.docker
+                mountPath: /docker-creds
+                readOnly: true
+              - name: docker-sock
+                mountPath: /var/run/docker.sock
 
         - name: deploy
           inputs:

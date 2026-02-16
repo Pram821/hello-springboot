@@ -9,7 +9,7 @@ import static io.gatling.javaapi.http.HttpDsl.*;
 public class SellerCenterSimulation extends Simulation {
 
     private final HttpProtocolBuilder httpProtocol = http
-            .baseUrl("http://localhost:8080")
+            .baseUrl(System.getProperty("gatling.baseUrl", "http://localhost:8080"))
             .acceptHeader("application/json")
             .contentTypeHeader("application/json");
 
