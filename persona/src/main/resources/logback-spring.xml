@@ -7,9 +7,9 @@
     </appender>
 
     <appender name="openobserve" class="com.example.hello.common.OpenObserveLogAppender">
-        <url>http://host.minikube.internal:5080/api/default/logs/_json</url>
-        <username>admin@example.com</username>
-        <password>Admin123!</password>
+        <url>http://openobserve.openobserve.svc.cluster.local:5080/api/default/logs/_json</url>
+        <username>admin@admin.com</username>
+        <password>admin123</password>
     </appender>
 
     <root level="INFO">
