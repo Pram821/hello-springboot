@@ -690,7 +690,8 @@ argo_workflows:
               - |
                 cd /workspace/src
                 mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
-                mvn io.gatling:gatling-maven-plugin:test -pl persona -am -Dgatling.baseUrl=http://hello-springboot.default.svc.cluster.local:8080
+                mvn install -pl persona -am -DskipTests -Dmaven.test.skip=true -q
+                mvn io.gatling:gatling-maven-plugin:test -pl persona -Dgatling.simulationClass=com.example.hello.persona.perf.SellerCenterSimulation -Dgatling.baseUrl=http://hello-springboot.default.svc.cluster.local:8080
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
