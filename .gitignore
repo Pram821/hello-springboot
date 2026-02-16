@@ -5,3 +5,4 @@ target/
 istio-1.20.2/
 openobserve/
 commonlib-local/
+*.dmg
