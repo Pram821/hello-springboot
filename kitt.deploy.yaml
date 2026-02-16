@@ -576,7 +576,7 @@ argo_workflows:
 
         - name: build
           container:
-            image: maven:3.9-eclipse-temurin-17
+            image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
             args:
               - |
@@ -595,7 +595,7 @@ argo_workflows:
 
         - name: test
           container:
-            image: maven:3.9-eclipse-temurin-17
+            image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
             args:
               - |
@@ -608,7 +608,7 @@ argo_workflows:
 
         - name: contract-test
           container:
-            image: maven:3.9-eclipse-temurin-17
+            image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
             args:
               - |
@@ -621,7 +621,7 @@ argo_workflows:
 
         - name: functional-test
           container:
-            image: maven:3.9-eclipse-temurin-17
+            image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
             args:
               - |
@@ -634,7 +634,7 @@ argo_workflows:
 
         - name: performance-test
           container:
-            image: maven:3.9-eclipse-temurin-17
+            image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
             args:
               - |
