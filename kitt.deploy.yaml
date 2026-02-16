@@ -579,7 +579,16 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - cd /workspace/src && mvn clean package -DskipTests
+              - |
+                cd /workspace/src
+                mvn install:install-file \
+                  -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar \
+                  -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom \
+                  -DgroupId=com.example \
+                  -DartifactId=mp-cmd-flashpicks-common-lib \
+                  -Dversion=0.0.1-SNAPSHOT \
+                  -Dpackaging=jar
+                mvn clean package -DskipTests
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -589,7 +598,10 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - cd /workspace/src && mvn test
+              - |
+                cd /workspace/src
+                mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
+                mvn test
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -599,7 +611,10 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - cd /workspace/src && mvn verify -pl persona -am -Pcontract-tests -DskipUnitTests=true
+              - |
+                cd /workspace/src
+                mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
+                mvn verify -pl persona -am -Pcontract-tests -DskipUnitTests=true
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -609,7 +624,10 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - cd /workspace/src && mvn verify -pl functional-tests -am -DskipUnitTests=true
+              - |
+                cd /workspace/src
+                mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
+                mvn verify -pl functional-tests -am -DskipUnitTests=true
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
@@ -619,7 +637,10 @@ argo_workflows:
             image: maven:3.9-eclipse-temurin-17
             command: [sh, -c]
             args:
-              - cd /workspace/src && mvn gatling:test -pl persona -am
+              - |
+                cd /workspace/src
+                mvn install:install-file -Dfile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.jar -DpomFile=commonlib-local/mp-cmd-flashpicks-common-lib-0.0.1-SNAPSHOT.pom -DgroupId=com.example -DartifactId=mp-cmd-flashpicks-common-lib -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar -q
+                mvn gatling:test -pl persona -am
             volumeMounts:
               - name: workspace
                 mountPath: /workspace
