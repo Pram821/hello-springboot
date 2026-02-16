@@ -14,9 +14,9 @@ import java.util.Base64;
 
 public class OpenObserveLogAppender extends AppenderBase<ILoggingEvent> {
 
-    private String url = "http://localhost:5080/api/default/logs/_json";
+    private String url = "http://host.minikube.internal:5080/api/default/logs/_json";
     private String username = "admin@example.com";
-    private String password = "Complexpass#123";
+    private String password = "Admin123!";
 
     public void setUrl(String url) { this.url = url; }
     public void setUsername(String username) { this.username = username; }
