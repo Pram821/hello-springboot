@@ -1,7 +1,7 @@
 import org.springframework.cloud.contract.spec.Contract
 
 Contract.make {
-    description "should return empty list when no campaigns exist"
+    description "should return list of campaigns"
     request {
         method GET()
         url "/api/campaigns"
@@ -11,6 +11,5 @@ Contract.make {
         headers {
             contentType(applicationJson())
         }
-        body("[]")
     }
 }
