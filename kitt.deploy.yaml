@@ -578,6 +578,16 @@ argo_workflows:
           container:
             image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
+            env:
+              - name: MAVEN_OPTS
+                value: "-Xmx512m -Xms256m"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1536Mi"
+                cpu: "1"
             args:
               - |
                 cd /workspace/src
@@ -597,6 +607,16 @@ argo_workflows:
           container:
             image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
+            env:
+              - name: MAVEN_OPTS
+                value: "-Xmx512m -Xms256m"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1536Mi"
+                cpu: "1"
             args:
               - |
                 cd /workspace/src
@@ -610,6 +630,16 @@ argo_workflows:
           container:
             image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
+            env:
+              - name: MAVEN_OPTS
+                value: "-Xmx512m -Xms256m"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1536Mi"
+                cpu: "1"
             args:
               - |
                 cd /workspace/src
@@ -623,6 +653,16 @@ argo_workflows:
           container:
             image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
+            env:
+              - name: MAVEN_OPTS
+                value: "-Xmx512m -Xms256m"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1536Mi"
+                cpu: "1"
             args:
               - |
                 cd /workspace/src
@@ -636,6 +676,16 @@ argo_workflows:
           container:
             image: maven:3.9-eclipse-temurin-21
             command: [sh, -c]
+            env:
+              - name: MAVEN_OPTS
+                value: "-Xmx512m -Xms256m"
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "250m"
+              limits:
+                memory: "1536Mi"
+                cpu: "1"
             args:
               - |
                 cd /workspace/src
