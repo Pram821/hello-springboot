@@ -1,13 +1,27 @@
 type Query {
     campaigns: [Campaign]
     campaignById(id: String!): Campaign
+    campaignsByStatus(status: String!): [Campaign]
     campaignPartnerItems: [CampaignPartnerItem]
     campaignPartnerItemById(id: String!): CampaignPartnerItem
+    prospectivePartners: [ProspectivePartner]
+    approvedPartners: [ApprovedPartner]
+    promos: [PromoEntity]
+    promoById(id: String!): PromoEntity
+    placementWeeks: [PlacementWeek]
+    placementWeekById(id: String!): PlacementWeek
+    placementWeekItems(weekId: String!): [PlacementWeekItem]
+    pendingApprovals: [CampaignPartnerItem]
+    reasonCodes: [ReviewReasonCode]
 }
 
 type Mutation {
     createCampaign(input: CampaignInput!): Campaign
     createCampaignPartnerItem(input: CampaignPartnerItemInput!): CampaignPartnerItem
+    updateCampaignStatus(id: String!, status: String!, modifiedBy: String!): Campaign
+    approvePartner(prospectivePartnerId: String!, approvedBy: String!): ApprovedPartner
+    approveItem(itemId: String!, approvedBy: String!): CampaignPartnerItem
+    declineItem(itemId: String!, declinedBy: String!, reasonCodeId: String!): CampaignPartnerItem
 }
 
 type Campaign {
@@ -15,12 +29,17 @@ type Campaign {
     campaignName: String
     campaignType: String
     campaignStatus: String
+    campaignSource: String
     startDate: String
     endDate: String
+    dueDate: String
     createdBy: String
     createdDate: String
     modifiedBy: String
     modifiedDate: String
+    categories: String
+    guidelines: String
+    additionalNotes: String
     entityVersion: Int
 }
 
@@ -30,9 +49,73 @@ type CampaignPartnerItem {
     itemId: String
     retailPrice: Float
     promoPrice: Float
+    dealStrength: String
+    dealStrengthScore: Float
+    reviewAction: String
     source: String
     createdBy: String
     entityVersion: Int
+}
+
+type ProspectivePartner {
+    prospectivePartnerId: String
+    partnerId: String
+    sellerName: String
+    buId: String
+    martId: String
+    createdBy: String
+    createdDate: String
+}
+
+type ApprovedPartner {
+    partnerId: String
+    sellerName: String
+    buId: String
+    martId: String
+    createdBy: String
+    createdDate: String
+}
+
+type PromoEntity {
+    promoEntityId: String
+    campaignPartnerItemId: String
+    promoId: String
+    promoStatus: String
+    eventAction: String
+    startDate: String
+    endDate: String
+    createdBy: String
+    createdDate: String
+}
+
+type PlacementWeek {
+    weekId: String
+    name: String
+    campaignType: String
+    status: String
+    startDate: String
+    endDate: String
+    createdBy: String
+    createdDate: String
+}
+
+type PlacementWeekItem {
+    weekItemId: String
+    weekId: String
+    itemId: String
+    partnerId: String
+    price: Float
+    stackRank: Int
+    createdBy: String
+}
+
+type ReviewReasonCode {
+    reasonCodeId: String
+    reviewReasonCode: String
+    shortDescription: String
+    longDescription: String
+    type: String
+    scope: String
 }
 
 input CampaignInput {
