@@ -5,33 +5,42 @@ import com.mp.flashpicks.common.entity.PromoEntity;
 import com.mp.flashpicks.common.entity.WmtDiscount;
 import com.mp.flashpicks.common.repository.PromoEntityRepository;
 import com.mp.flashpicks.common.repository.WmtDiscountRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class PromoService {
 
-    @Autowired
-    private PromoEntityRepository promoEntityRepository;
+    private final PromoEntityRepository promoEntityRepository;
+    private final WmtDiscountRepository wmtDiscountRepository;
 
-    @Autowired
-    private WmtDiscountRepository wmtDiscountRepository;
+    public PromoService(PromoEntityRepository promoEntityRepository,
+                        WmtDiscountRepository wmtDiscountRepository) {
+        this.promoEntityRepository = promoEntityRepository;
+        this.wmtDiscountRepository = wmtDiscountRepository;
+    }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "promos")
     public List<PromoEntity> getAllPromos() {
         return promoEntityRepository.findAll();
     }
 
-    public PromoEntity getPromoById(String id) {
-        byte[] pk = uuidToBytes(id);
-        return promoEntityRepository.findById(pk).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<PromoEntity> getPromoById(String id) {
+        return promoEntityRepository.findById(uuidToBytes(id));
     }
 
+    @Transactional(readOnly = true)
     public List<PromoEntity> getPromosByCampaignPartnerItemId(String itemId) {
         byte[] itemIdBytes = uuidToBytes(itemId);
         return promoEntityRepository.findAll().stream()
@@ -39,6 +48,8 @@ public class PromoService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    @CacheEvict(value = "promos", allEntries = true)
     public PromoEntity createPromo(String campaignPartnerItemId, String promoId, String promoStatus,
                                    LocalDateTime startDate, LocalDateTime endDate, String createdBy) {
         PromoEntity promo = new PromoEntity();
@@ -55,13 +66,13 @@ public class PromoService {
         return promoEntityRepository.save(promo);
     }
 
+    @Transactional
+    @CacheEvict(value = "promos", allEntries = true)
     public PromoEntity updatePromoStatus(String promoEntityId, String newStatus, String previousStatus,
                                          String eventAction, String modifiedBy) {
-        byte[] pk = uuidToBytes(promoEntityId);
-        PromoEntity promo = promoEntityRepository.findById(pk).orElse(null);
-        if (promo == null) {
-            return null;
-        }
+        PromoEntity promo = promoEntityRepository.findById(uuidToBytes(promoEntityId))
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Promo not found: " + promoEntityId));
         promo.setPromoStatus(newStatus);
         promo.setPreviousPromoStatus(previousStatus);
         promo.setEventAction(eventAction);
@@ -70,6 +81,7 @@ public class PromoService {
         return promoEntityRepository.save(promo);
     }
 
+    @Transactional
     public WmtDiscount createWmtDiscount(WmtDiscountInput input) {
         WmtDiscount discount = new WmtDiscount();
         discount.setWmtDiscountId(uuidToBytes(UUID.randomUUID().toString()));
@@ -77,13 +89,9 @@ public class PromoService {
         discount.setWmtDiscount(input.getWmtDiscount());
         discount.setWmtDiscountAcceptance(input.getWmtDiscountAcceptance());
         discount.setOfferedBy(input.getOfferedBy());
-        if (input.getOfferedOn() != null) {
-            discount.setOfferedOn(LocalDateTime.parse(input.getOfferedOn()));
-        }
+        Optional.ofNullable(input.getOfferedOn()).map(LocalDateTime::parse).ifPresent(discount::setOfferedOn);
         discount.setAcceptedBy(input.getAcceptedBy());
-        if (input.getAcceptedOn() != null) {
-            discount.setAcceptedOn(LocalDateTime.parse(input.getAcceptedOn()));
-        }
+        Optional.ofNullable(input.getAcceptedOn()).map(LocalDateTime::parse).ifPresent(discount::setAcceptedOn);
         discount.setCreatedBy(input.getCreatedBy());
         discount.setCreatedDate(LocalDateTime.now());
         discount.setModifiedBy(input.getModifiedBy());
@@ -92,6 +100,7 @@ public class PromoService {
         return wmtDiscountRepository.save(discount);
     }
 
+    @Transactional(readOnly = true)
     public List<WmtDiscount> getDiscountsByItemId(String itemId) {
         byte[] itemIdBytes = uuidToBytes(itemId);
         return wmtDiscountRepository.findAll().stream()
@@ -99,9 +108,9 @@ public class PromoService {
                 .collect(Collectors.toList());
     }
 
-    public WmtDiscount getDiscountById(String wmtDiscountId) {
-        byte[] pk = uuidToBytes(wmtDiscountId);
-        return wmtDiscountRepository.findById(pk).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<WmtDiscount> getDiscountById(String wmtDiscountId) {
+        return wmtDiscountRepository.findById(uuidToBytes(wmtDiscountId));
     }
 
     private byte[] uuidToBytes(String uuidStr) {
@@ -110,11 +119,5 @@ public class PromoService {
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }

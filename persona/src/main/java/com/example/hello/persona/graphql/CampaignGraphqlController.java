@@ -49,10 +49,8 @@ public class CampaignGraphqlController {
     public Campaign campaignById(@Argument String id) {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaignById({})", id);
-        Campaign campaign = campaignService.getCampaignById(id);
-        if (campaign == null) {
-            throw new ResourceNotFoundException("Campaign not found: " + id);
-        }
+        Campaign campaign = campaignService.getCampaignById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found: " + id));
         return campaign;
     }
 

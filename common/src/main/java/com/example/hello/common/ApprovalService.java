@@ -7,8 +7,10 @@ import com.mp.flashpicks.common.repository.CampaignPartnerItemRepository;
 import com.mp.flashpicks.common.repository.ItemReviewReasonCodeRepository;
 import com.mp.flashpicks.common.repository.ReviewReasonCodeRepository;
 import com.mp.flashpicks.common.repository.RulesDataRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
@@ -19,42 +21,46 @@ import java.util.stream.Collectors;
 @Service
 public class ApprovalService {
 
-    @Autowired
-    private CampaignPartnerItemRepository campaignPartnerItemRepository;
+    private final CampaignPartnerItemRepository campaignPartnerItemRepository;
+    private final ReviewReasonCodeRepository reviewReasonCodeRepository;
+    private final ItemReviewReasonCodeRepository itemReviewReasonCodeRepository;
+    private final RulesDataRepository rulesDataRepository;
 
-    @Autowired
-    private ReviewReasonCodeRepository reviewReasonCodeRepository;
+    public ApprovalService(CampaignPartnerItemRepository campaignPartnerItemRepository,
+                           ReviewReasonCodeRepository reviewReasonCodeRepository,
+                           ItemReviewReasonCodeRepository itemReviewReasonCodeRepository,
+                           RulesDataRepository rulesDataRepository) {
+        this.campaignPartnerItemRepository = campaignPartnerItemRepository;
+        this.reviewReasonCodeRepository = reviewReasonCodeRepository;
+        this.itemReviewReasonCodeRepository = itemReviewReasonCodeRepository;
+        this.rulesDataRepository = rulesDataRepository;
+    }
 
-    @Autowired
-    private ItemReviewReasonCodeRepository itemReviewReasonCodeRepository;
-
-    @Autowired
-    private RulesDataRepository rulesDataRepository;
-
+    @Transactional(readOnly = true)
     public List<CampaignPartnerItem> getPendingItems() {
         return campaignPartnerItemRepository.findAll().stream()
                 .filter(i -> "PENDING".equals(i.getReviewAction()))
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public CampaignPartnerItem approveItem(String campaignPartnerItemId, String approvedBy) {
         byte[] pk = uuidToBytes(campaignPartnerItemId);
-        CampaignPartnerItem item = campaignPartnerItemRepository.findById(pk).orElse(null);
-        if (item == null) {
-            return null;
-        }
+        CampaignPartnerItem item = campaignPartnerItemRepository.findById(pk)
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Item not found: " + campaignPartnerItemId));
         item.setReviewAction("APPROVED");
         item.setModifiedBy(approvedBy);
         item.setModifiedDate(LocalDateTime.now());
         return campaignPartnerItemRepository.save(item);
     }
 
+    @Transactional
     public CampaignPartnerItem declineItem(String campaignPartnerItemId, String declinedBy, String reasonCodeId) {
         byte[] pk = uuidToBytes(campaignPartnerItemId);
-        CampaignPartnerItem item = campaignPartnerItemRepository.findById(pk).orElse(null);
-        if (item == null) {
-            return null;
-        }
+        CampaignPartnerItem item = campaignPartnerItemRepository.findById(pk)
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Item not found: " + campaignPartnerItemId));
         item.setReviewAction("DECLINED");
         item.setModifiedBy(declinedBy);
         item.setModifiedDate(LocalDateTime.now());
@@ -69,10 +75,14 @@ public class ApprovalService {
         return saved;
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "reasonCodes")
     public List<ReviewReasonCode> getAllReasonCodes() {
         return reviewReasonCodeRepository.findAll();
     }
 
+    @Transactional
+    @CacheEvict(value = "reasonCodes", allEntries = true)
     public ReviewReasonCode createReasonCode(String code, String shortDesc, String longDesc,
                                              String type, String scope, String buId,
                                              String martId, String createdBy) {
@@ -92,6 +102,7 @@ public class ApprovalService {
         return reviewReasonCodeRepository.save(reasonCode);
     }
 
+    @Transactional(readOnly = true)
     public List<ItemReviewReasonCode> getItemReviewReasons(String campaignPartnerItemId) {
         byte[] itemIdBytes = uuidToBytes(campaignPartnerItemId);
         return itemReviewReasonCodeRepository.findAll().stream()
@@ -99,19 +110,11 @@ public class ApprovalService {
                 .collect(Collectors.toList());
     }
 
-    // ItemReviewReasonCode is a simple mapping entity (no timestamps/version)
-
     private byte[] uuidToBytes(String uuidStr) {
         UUID uuid = UUID.fromString(uuidStr);
         ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }

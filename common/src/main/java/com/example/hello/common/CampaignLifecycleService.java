@@ -3,8 +3,9 @@ package com.example.hello.common;
 import com.mp.flashpicks.common.dto.CampaignRequest;
 import com.mp.flashpicks.common.entity.Campaign;
 import com.mp.flashpicks.common.repository.CampaignRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
@@ -15,15 +16,19 @@ import java.util.stream.Collectors;
 @Service
 public class CampaignLifecycleService {
 
-    @Autowired
-    private CampaignRepository campaignRepository;
+    private final CampaignRepository campaignRepository;
 
+    public CampaignLifecycleService(CampaignRepository campaignRepository) {
+        this.campaignRepository = campaignRepository;
+    }
+
+    @Transactional
+    @CacheEvict(value = "campaigns", allEntries = true)
     public Campaign updateCampaignStatus(String campaignId, String newStatus, String modifiedBy) {
         byte[] pk = uuidToBytes(campaignId);
-        Campaign campaign = campaignRepository.findById(pk).orElse(null);
-        if (campaign == null) {
-            return null;
-        }
+        Campaign campaign = campaignRepository.findById(pk)
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Campaign not found: " + campaignId));
 
         String currentStatus = campaign.getCampaignStatus();
         if (!isValidTransition(currentStatus, newStatus)) {
@@ -36,30 +41,24 @@ public class CampaignLifecycleService {
         return campaignRepository.save(campaign);
     }
 
+    @Transactional
+    @CacheEvict(value = "campaigns", allEntries = true)
     public Campaign updateCampaign(String campaignId, CampaignRequest request) {
         byte[] pk = uuidToBytes(campaignId);
-        Campaign campaign = campaignRepository.findById(pk).orElse(null);
-        if (campaign == null) {
-            return null;
-        }
+        Campaign campaign = campaignRepository.findById(pk)
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Campaign not found: " + campaignId));
 
-        if (request.getName() != null) {
-            campaign.setCampaignName(request.getName());
-        }
-        if (request.getCampaignType() != null) {
-            campaign.setCampaignType(request.getCampaignType());
-        }
-        if (request.getStartDate() != null) {
-            campaign.setStartDate(request.getStartDate());
-        }
-        if (request.getEndDate() != null) {
-            campaign.setEndDate(request.getEndDate());
-        }
+        java.util.Optional.ofNullable(request.getName()).ifPresent(campaign::setCampaignName);
+        java.util.Optional.ofNullable(request.getCampaignType()).ifPresent(campaign::setCampaignType);
+        java.util.Optional.ofNullable(request.getStartDate()).ifPresent(campaign::setStartDate);
+        java.util.Optional.ofNullable(request.getEndDate()).ifPresent(campaign::setEndDate);
         campaign.setModifiedBy(request.getModifiedBy());
         campaign.setModifiedDate(LocalDateTime.now());
         return campaignRepository.save(campaign);
     }
 
+    @Transactional(readOnly = true)
     public List<Campaign> getCampaignsByStatus(String status) {
         return campaignRepository.findAll().stream()
                 .filter(c -> status.equals(c.getCampaignStatus()))
@@ -67,19 +66,10 @@ public class CampaignLifecycleService {
     }
 
     private boolean isValidTransition(String currentStatus, String newStatus) {
-        if ("CANCELLED".equals(newStatus)) {
-            return true;
-        }
-        if ("DRAFT".equals(currentStatus) && "OPEN".equals(newStatus)) {
-            return true;
-        }
-        if ("OPEN".equals(currentStatus) && "LIVE".equals(newStatus)) {
-            return true;
-        }
-        if ("LIVE".equals(currentStatus) && "COMPLETED".equals(newStatus)) {
-            return true;
-        }
-        return false;
+        return "CANCELLED".equals(newStatus)
+                || ("DRAFT".equals(currentStatus) && "OPEN".equals(newStatus))
+                || ("OPEN".equals(currentStatus) && "LIVE".equals(newStatus))
+                || ("LIVE".equals(currentStatus) && "COMPLETED".equals(newStatus));
     }
 
     private byte[] uuidToBytes(String uuidStr) {
@@ -88,11 +78,5 @@ public class CampaignLifecycleService {
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }

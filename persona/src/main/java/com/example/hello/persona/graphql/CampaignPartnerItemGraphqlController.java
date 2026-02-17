@@ -49,10 +49,8 @@ public class CampaignPartnerItemGraphqlController {
     public CampaignPartnerItem campaignPartnerItemById(@Argument String id) {
         gqlQueryCounter.increment();
         log.info("GraphQL query: campaignPartnerItemById({})", id);
-        CampaignPartnerItem item = itemService.getItemById(id);
-        if (item == null) {
-            throw new ResourceNotFoundException("Campaign partner item not found: " + id);
-        }
+        CampaignPartnerItem item = itemService.getItemById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign partner item not found: " + id));
         return item;
     }
 

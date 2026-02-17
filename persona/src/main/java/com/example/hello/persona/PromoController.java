@@ -63,10 +63,8 @@ public class PromoController {
     @Timed(value = "promos.getById", description = "Time taken to get promo by ID")
     public ResponseEntity<PromoEntity> getPromoById(@PathVariable String id) {
         log.info("GET /api/promos/{} called", id);
-        PromoEntity promo = promoService.getPromoById(id);
-        if (promo == null) {
-            throw new ResourceNotFoundException("Promo not found: " + id);
-        }
+        PromoEntity promo = promoService.getPromoById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Promo not found: " + id));
         return ResponseEntity.ok(promo);
     }
 

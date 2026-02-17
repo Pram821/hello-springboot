@@ -58,10 +58,8 @@ public class CampaignPartnerItemController {
     public ResponseEntity<CampaignPartnerItem> getItemById(@PathVariable String itemId) {
         itemGetCounter.increment();
         log.info("GET /api/campaign-partner-items/{} called", itemId);
-        CampaignPartnerItem item = campaignPartnerItemService.getItemById(itemId);
-        if (item == null) {
-            throw new ResourceNotFoundException("Campaign partner item not found: " + itemId);
-        }
+        CampaignPartnerItem item = campaignPartnerItemService.getItemById(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign partner item not found: " + itemId));
         return ResponseEntity.ok(item);
     }
 

@@ -61,10 +61,8 @@ public class PartnerController {
     @Timed(value = "partners.prospective.getById", description = "Time taken to get prospective partner by ID")
     public ResponseEntity<ProspectivePartner> getProspectivePartnerById(@PathVariable String id) {
         log.info("GET /api/partners/prospective/{} called", id);
-        ProspectivePartner partner = partnerOnboardingService.getProspectivePartnerById(id);
-        if (partner == null) {
-            throw new ResourceNotFoundException("Prospective partner not found: " + id);
-        }
+        ProspectivePartner partner = partnerOnboardingService.getProspectivePartnerById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Prospective partner not found: " + id));
         return ResponseEntity.ok(partner);
     }
 
@@ -109,10 +107,8 @@ public class PartnerController {
     @Timed(value = "partners.approved.getById", description = "Time taken to get approved partner by ID")
     public ResponseEntity<ApprovedPartner> getApprovedPartner(@PathVariable String partnerId) {
         log.info("GET /api/partners/approved/{} called", partnerId);
-        ApprovedPartner partner = partnerOnboardingService.getApprovedPartner(partnerId);
-        if (partner == null) {
-            throw new ResourceNotFoundException("Approved partner not found: " + partnerId);
-        }
+        ApprovedPartner partner = partnerOnboardingService.getApprovedPartner(partnerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Approved partner not found: " + partnerId));
         return ResponseEntity.ok(partner);
     }
 }

@@ -3,29 +3,36 @@ package com.example.hello.common;
 import com.mp.flashpicks.common.dto.CampaignPartnerItemInput;
 import com.mp.flashpicks.common.entity.CampaignPartnerItem;
 import com.mp.flashpicks.common.repository.CampaignPartnerItemRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class CampaignPartnerItemService {
 
-    @Autowired
-    private CampaignPartnerItemRepository campaignPartnerItemRepository;
+    private final CampaignPartnerItemRepository campaignPartnerItemRepository;
 
+    public CampaignPartnerItemService(CampaignPartnerItemRepository campaignPartnerItemRepository) {
+        this.campaignPartnerItemRepository = campaignPartnerItemRepository;
+    }
+
+    @Transactional(readOnly = true)
     public List<CampaignPartnerItem> getAllItems() {
         return campaignPartnerItemRepository.findAll();
     }
 
-    public CampaignPartnerItem getItemById(String id) {
+    @Transactional(readOnly = true)
+    public Optional<CampaignPartnerItem> getItemById(String id) {
         byte[] pk = uuidToBytes(id);
-        return campaignPartnerItemRepository.findById(pk).orElse(null);
+        return campaignPartnerItemRepository.findById(pk);
     }
 
+    @Transactional
     public CampaignPartnerItem createItem(CampaignPartnerItemInput input) {
         CampaignPartnerItem item = new CampaignPartnerItem();
         item.setCampaignPartnerItemId(uuidToBytes(UUID.randomUUID().toString()));

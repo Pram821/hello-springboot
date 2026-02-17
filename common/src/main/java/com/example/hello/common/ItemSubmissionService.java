@@ -7,43 +7,42 @@ import com.mp.flashpicks.common.entity.ItemDetail;
 import com.mp.flashpicks.common.repository.CampaignPartnerItemRepository;
 import com.mp.flashpicks.common.repository.CampaignPartnerMessageRepository;
 import com.mp.flashpicks.common.repository.ItemDetailRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class ItemSubmissionService {
 
-    @Autowired
-    private CampaignPartnerItemRepository campaignPartnerItemRepository;
+    private final CampaignPartnerItemRepository campaignPartnerItemRepository;
+    private final CampaignPartnerMessageRepository campaignPartnerMessageRepository;
+    private final ItemDetailRepository itemDetailRepository;
 
-    @Autowired
-    private CampaignPartnerMessageRepository campaignPartnerMessageRepository;
+    public ItemSubmissionService(CampaignPartnerItemRepository campaignPartnerItemRepository,
+                                  CampaignPartnerMessageRepository campaignPartnerMessageRepository,
+                                  ItemDetailRepository itemDetailRepository) {
+        this.campaignPartnerItemRepository = campaignPartnerItemRepository;
+        this.campaignPartnerMessageRepository = campaignPartnerMessageRepository;
+        this.itemDetailRepository = itemDetailRepository;
+    }
 
-    @Autowired
-    private ItemDetailRepository itemDetailRepository;
-
+    @Transactional
     public CampaignPartnerItem submitItemToCampaign(CampaignPartnerItemInput input) {
         CampaignPartnerItem item = new CampaignPartnerItem();
         item.setCampaignPartnerItemId(uuidToBytes(UUID.randomUUID().toString()));
         item.setCampaignPartnerId(uuidToBytes(input.getCampaignPartnerId()));
-        if (input.getCampaignPk() != null) {
-            item.setCampaignPk(uuidToBytes(input.getCampaignPk()));
-        }
+        Optional.ofNullable(input.getCampaignPk()).map(this::uuidToBytes).ifPresent(item::setCampaignPk);
         item.setPartnerId(input.getPartnerId());
         item.setItemId(input.getItemId());
         item.setAsin(input.getAsin());
-        if (input.getStartDate() != null) {
-            item.setStartDate(LocalDateTime.parse(input.getStartDate()));
-        }
-        if (input.getEndDate() != null) {
-            item.setEndDate(LocalDateTime.parse(input.getEndDate()));
-        }
+        Optional.ofNullable(input.getStartDate()).map(LocalDateTime::parse).ifPresent(item::setStartDate);
+        Optional.ofNullable(input.getEndDate()).map(LocalDateTime::parse).ifPresent(item::setEndDate);
         item.setAvailableInventory(input.getAvailableInventory());
         item.setForecastQuantity(input.getForecastQuantity());
         item.setRetailPrice(input.getRetailPrice());
@@ -74,6 +73,7 @@ public class ItemSubmissionService {
         return campaignPartnerItemRepository.save(item);
     }
 
+    @Transactional(readOnly = true)
     public List<CampaignPartnerItem> getItemsByCampaign(String campaignPk) {
         byte[] campaignPkBytes = uuidToBytes(campaignPk);
         return campaignPartnerItemRepository.findAll().stream()
@@ -81,12 +81,14 @@ public class ItemSubmissionService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<CampaignPartnerItem> getItemsByPartner(String partnerId) {
         return campaignPartnerItemRepository.findAll().stream()
                 .filter(i -> partnerId.equals(i.getPartnerId()))
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public CampaignPartnerMessage addMessage(String campaignPartnerId, String comment,
                                              String postedBy, String source) {
         CampaignPartnerMessage message = new CampaignPartnerMessage();
@@ -101,6 +103,7 @@ public class ItemSubmissionService {
         return campaignPartnerMessageRepository.save(message);
     }
 
+    @Transactional(readOnly = true)
     public List<CampaignPartnerMessage> getMessages(String campaignPartnerId) {
         byte[] partnerIdBytes = uuidToBytes(campaignPartnerId);
         return campaignPartnerMessageRepository.findAll().stream()
@@ -108,8 +111,9 @@ public class ItemSubmissionService {
                 .collect(Collectors.toList());
     }
 
-    public ItemDetail getItemDetail(String itemId) {
-        return itemDetailRepository.findById(itemId).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<ItemDetail> getItemDetail(String itemId) {
+        return itemDetailRepository.findById(itemId);
     }
 
     private byte[] uuidToBytes(String uuidStr) {
@@ -118,11 +122,5 @@ public class ItemSubmissionService {
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }

@@ -3,29 +3,40 @@ package com.example.hello.common;
 import com.mp.flashpicks.common.dto.CampaignRequest;
 import com.mp.flashpicks.common.entity.Campaign;
 import com.mp.flashpicks.common.repository.CampaignRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class CampaignService {
 
-    @Autowired
-    private CampaignRepository campaignRepository;
+    private final CampaignRepository campaignRepository;
 
+    public CampaignService(CampaignRepository campaignRepository) {
+        this.campaignRepository = campaignRepository;
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "campaigns")
     public List<Campaign> getAllCampaigns() {
         return campaignRepository.findAll();
     }
 
-    public Campaign getCampaignById(String campaignId) {
+    @Transactional(readOnly = true)
+    public Optional<Campaign> getCampaignById(String campaignId) {
         byte[] pk = uuidToBytes(campaignId);
-        return campaignRepository.findById(pk).orElse(null);
+        return campaignRepository.findById(pk);
     }
 
+    @Transactional
+    @CacheEvict(value = "campaigns", allEntries = true)
     public Campaign createCampaign(CampaignRequest request) {
         Campaign campaign = new Campaign();
         campaign.setCampaignPk(uuidToBytes(UUID.randomUUID().toString()));

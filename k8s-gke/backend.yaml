@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-springboot
+  namespace: seller-center
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello-springboot
+  template:
+    metadata:
+      labels:
+        app: hello-springboot
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      containers:
+        - name: app
+          image: us-central1-docker.pkg.dev/hello-springboot-2026/seller-center/hello-springboot:v1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql.seller-center.svc.cluster.local:3306/pramsqldb?allowPublicKeyRetrieval=true&useSSL=false"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka.kafka.svc.cluster.local:9092"
+            - name: MANAGEMENT_OTLP_TRACING_ENDPOINT
+              value: "http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector.monitoring.svc.cluster.local:4318"
+            - name: DYNATRACE_ENABLED
+              value: "true"
+            - name: DYNATRACE_URI
+              value: "https://ybt22857.live.dynatrace.com/api/v2/metrics/ingest"
+            - name: DYNATRACE_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: dynatrace-secret
+                  key: api-token
+            - name: DYNATRACE_ENV
+              value: "gke"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-springboot
+  namespace: seller-center
+spec:
+  type: LoadBalancer
+  selector:
+    app: hello-springboot
+  ports:
+    - port: 8080
+      targetPort: 8080

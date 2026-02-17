@@ -109,10 +109,8 @@ public class ItemSubmissionController {
     @Timed(value = "items.detail.get", description = "Time taken to get item detail")
     public ResponseEntity<ItemDetail> getItemDetail(@PathVariable String itemId) {
         log.info("GET /api/item-submissions/item-detail/{} called", itemId);
-        ItemDetail detail = itemSubmissionService.getItemDetail(itemId);
-        if (detail == null) {
-            throw new ResourceNotFoundException("Item detail not found: " + itemId);
-        }
+        ItemDetail detail = itemSubmissionService.getItemDetail(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Item detail not found: " + itemId));
         return ResponseEntity.ok(detail);
     }
 

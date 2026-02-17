@@ -58,10 +58,8 @@ public class CampaignController {
     public ResponseEntity<Campaign> getCampaignById(@PathVariable String campaignId) {
         campaignGetCounter.increment();
         log.info("GET /api/campaigns/{} called", campaignId);
-        Campaign campaign = campaignService.getCampaignById(campaignId);
-        if (campaign == null) {
-            throw new ResourceNotFoundException("Campaign not found: " + campaignId);
-        }
+        Campaign campaign = campaignService.getCampaignById(campaignId)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found: " + campaignId));
         return ResponseEntity.ok(campaign);
     }
 

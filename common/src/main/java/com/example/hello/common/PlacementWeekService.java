@@ -5,46 +5,50 @@ import com.mp.flashpicks.common.entity.PlacementWeek;
 import com.mp.flashpicks.common.entity.PlacementWeekItem;
 import com.mp.flashpicks.common.repository.PlacementWeekItemRepository;
 import com.mp.flashpicks.common.repository.PlacementWeekRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class PlacementWeekService {
 
-    @Autowired
-    private PlacementWeekRepository placementWeekRepository;
+    private final PlacementWeekRepository placementWeekRepository;
+    private final PlacementWeekItemRepository placementWeekItemRepository;
 
-    @Autowired
-    private PlacementWeekItemRepository placementWeekItemRepository;
+    public PlacementWeekService(PlacementWeekRepository placementWeekRepository,
+                                 PlacementWeekItemRepository placementWeekItemRepository) {
+        this.placementWeekRepository = placementWeekRepository;
+        this.placementWeekItemRepository = placementWeekItemRepository;
+    }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "placementWeeks")
     public List<PlacementWeek> getAllPlacementWeeks() {
         return placementWeekRepository.findAll();
     }
 
-    public PlacementWeek getPlacementWeekById(String id) {
-        byte[] pk = uuidToBytes(id);
-        return placementWeekRepository.findById(pk).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<PlacementWeek> getPlacementWeekById(String id) {
+        return placementWeekRepository.findById(uuidToBytes(id));
     }
 
-    // PlacementWeekInput dates are Strings; PlacementWeek dates are LocalDateTime
-
+    @Transactional
+    @CacheEvict(value = "placementWeeks", allEntries = true)
     public PlacementWeek createPlacementWeek(PlacementWeekInput input) {
         PlacementWeek week = new PlacementWeek();
         week.setWeekId(uuidToBytes(UUID.randomUUID().toString()));
         week.setName(input.getName());
         week.setCampaignType(input.getCampaignType());
-        if (input.getStartDate() != null) {
-            week.setStartDate(LocalDateTime.parse(input.getStartDate()));
-        }
-        if (input.getEndDate() != null) {
-            week.setEndDate(LocalDateTime.parse(input.getEndDate()));
-        }
+        Optional.ofNullable(input.getStartDate()).map(LocalDateTime::parse).ifPresent(week::setStartDate);
+        Optional.ofNullable(input.getEndDate()).map(LocalDateTime::parse).ifPresent(week::setEndDate);
         week.setStatus(input.getStatus());
         week.setRecommendationVersion(input.getRecommendationVersion());
         week.setBuId(input.getBuId());
@@ -57,18 +61,19 @@ public class PlacementWeekService {
         return placementWeekRepository.save(week);
     }
 
+    @Transactional
+    @CacheEvict(value = "placementWeeks", allEntries = true)
     public PlacementWeek updatePlacementWeekStatus(String weekId, String status, String modifiedBy) {
-        byte[] pk = uuidToBytes(weekId);
-        PlacementWeek week = placementWeekRepository.findById(pk).orElse(null);
-        if (week == null) {
-            return null;
-        }
+        PlacementWeek week = placementWeekRepository.findById(uuidToBytes(weekId))
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Placement week not found: " + weekId));
         week.setStatus(status);
         week.setModifiedBy(modifiedBy);
         week.setModifiedDate(LocalDateTime.now());
         return placementWeekRepository.save(week);
     }
 
+    @Transactional(readOnly = true)
     public List<PlacementWeekItem> getItemsByWeekId(String weekId) {
         byte[] weekIdBytes = uuidToBytes(weekId);
         return placementWeekItemRepository.findAll().stream()
@@ -76,6 +81,7 @@ public class PlacementWeekService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public PlacementWeekItem addItemToWeek(String weekId, String itemId, String partnerId,
                                            Double price, Integer stackRank, String buId,
                                            String martId, String createdBy) {
@@ -95,12 +101,11 @@ public class PlacementWeekService {
         return placementWeekItemRepository.save(item);
     }
 
+    @Transactional
     public PlacementWeekItem updateItemRank(String weekItemId, Integer newRank, String modifiedBy) {
-        byte[] pk = uuidToBytes(weekItemId);
-        PlacementWeekItem item = placementWeekItemRepository.findById(pk).orElse(null);
-        if (item == null) {
-            return null;
-        }
+        PlacementWeekItem item = placementWeekItemRepository.findById(uuidToBytes(weekItemId))
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Placement week item not found: " + weekItemId));
         item.setStackRank(newRank);
         item.setModifiedBy(modifiedBy);
         item.setModifiedDate(LocalDateTime.now());
@@ -113,11 +118,5 @@ public class PlacementWeekService {
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }

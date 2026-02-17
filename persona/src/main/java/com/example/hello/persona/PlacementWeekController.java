@@ -64,10 +64,8 @@ public class PlacementWeekController {
     @Timed(value = "placement.weeks.getById", description = "Time taken to get placement week by ID")
     public ResponseEntity<PlacementWeek> getPlacementWeekById(@PathVariable String id) {
         log.info("GET /api/placement-weeks/{} called", id);
-        PlacementWeek week = placementWeekService.getPlacementWeekById(id);
-        if (week == null) {
-            throw new ResourceNotFoundException("Placement week not found: " + id);
-        }
+        PlacementWeek week = placementWeekService.getPlacementWeekById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Placement week not found: " + id));
         return ResponseEntity.ok(week);
     }
 

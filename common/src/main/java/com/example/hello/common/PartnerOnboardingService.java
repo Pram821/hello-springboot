@@ -4,32 +4,42 @@ import com.mp.flashpicks.common.entity.ApprovedPartner;
 import com.mp.flashpicks.common.entity.ProspectivePartner;
 import com.mp.flashpicks.common.repository.ApprovedPartnerRepository;
 import com.mp.flashpicks.common.repository.ProspectivePartnerRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class PartnerOnboardingService {
 
-    @Autowired
-    private ProspectivePartnerRepository prospectivePartnerRepository;
+    private final ProspectivePartnerRepository prospectivePartnerRepository;
+    private final ApprovedPartnerRepository approvedPartnerRepository;
 
-    @Autowired
-    private ApprovedPartnerRepository approvedPartnerRepository;
+    public PartnerOnboardingService(ProspectivePartnerRepository prospectivePartnerRepository,
+                                     ApprovedPartnerRepository approvedPartnerRepository) {
+        this.prospectivePartnerRepository = prospectivePartnerRepository;
+        this.approvedPartnerRepository = approvedPartnerRepository;
+    }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "partners", key = "'prospective'")
     public List<ProspectivePartner> getAllProspectivePartners() {
         return prospectivePartnerRepository.findAll();
     }
 
-    public ProspectivePartner getProspectivePartnerById(String id) {
-        byte[] pk = uuidToBytes(id);
-        return prospectivePartnerRepository.findById(pk).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<ProspectivePartner> getProspectivePartnerById(String id) {
+        return prospectivePartnerRepository.findById(uuidToBytes(id));
     }
 
+    @Transactional
+    @CacheEvict(value = "partners", allEntries = true)
     public ProspectivePartner createProspectivePartner(String partnerId, String sellerName, String buId, String martId, String createdBy) {
         ProspectivePartner partner = new ProspectivePartner();
         partner.setProspectivePartnerId(uuidToBytes(UUID.randomUUID().toString()));
@@ -44,12 +54,12 @@ public class PartnerOnboardingService {
         return prospectivePartnerRepository.save(partner);
     }
 
+    @Transactional
+    @CacheEvict(value = "partners", allEntries = true)
     public ApprovedPartner approvePartner(String prospectivePartnerId, String approvedBy) {
-        byte[] pk = uuidToBytes(prospectivePartnerId);
-        ProspectivePartner prospective = prospectivePartnerRepository.findById(pk).orElse(null);
-        if (prospective == null) {
-            return null;
-        }
+        ProspectivePartner prospective = prospectivePartnerRepository.findById(uuidToBytes(prospectivePartnerId))
+                .orElseThrow(() -> new com.example.hello.common.exception.ResourceNotFoundException(
+                        "Prospective partner not found: " + prospectivePartnerId));
 
         ApprovedPartner approved = new ApprovedPartner();
         approved.setPartnerId(prospective.getPartnerId());
@@ -62,16 +72,19 @@ public class PartnerOnboardingService {
         approved.setEntityVersion(1L);
 
         ApprovedPartner saved = approvedPartnerRepository.save(approved);
-        prospectivePartnerRepository.deleteById(pk);
+        prospectivePartnerRepository.deleteById(uuidToBytes(prospectivePartnerId));
         return saved;
     }
 
+    @Transactional(readOnly = true)
+    @Cacheable(value = "partners", key = "'approved'")
     public List<ApprovedPartner> getAllApprovedPartners() {
         return approvedPartnerRepository.findAll();
     }
 
-    public ApprovedPartner getApprovedPartner(String partnerId) {
-        return approvedPartnerRepository.findById(partnerId).orElse(null);
+    @Transactional(readOnly = true)
+    public Optional<ApprovedPartner> getApprovedPartner(String partnerId) {
+        return approvedPartnerRepository.findById(partnerId);
     }
 
     private byte[] uuidToBytes(String uuidStr) {
@@ -80,11 +93,5 @@ public class PartnerOnboardingService {
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
-    }
-
-    private String bytesToUuid(byte[] bytes) {
-        ByteBuffer bb = ByteBuffer.wrap(bytes);
-        UUID uuid = new UUID(bb.getLong(), bb.getLong());
-        return uuid.toString();
     }
 }
