@@ -1,0 +1,97 @@
+# External Secrets Operator - Akeyless Integration
+# Prerequisites:
+#   1. Sign up at https://console.akeyless.io
+#   2. Create an API Key auth method → get Access ID + Access Key
+#   3. Create secrets in Akeyless:
+#      - /seller-center/dynatrace-api-token
+#      - /seller-center/mysql-root-password
+#   4. Update the akeyless-credentials secret below with your Access ID and Key
+#   5. kubectl apply -f k8s-gke/akeyless-eso.yaml
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: akeyless-credentials
+  namespace: external-secrets
+type: Opaque
+stringData:
+  accessId: "<YOUR_AKEYLESS_ACCESS_ID>"
+  accessType: "api_key"
+  accessTypeParam: "<YOUR_AKEYLESS_ACCESS_KEY>"
+---
+apiVersion: external-secrets.io/v1beta1
+kind: ClusterSecretStore
+metadata:
+  name: akeyless-secret-store
+spec:
+  provider:
+    akeyless:
+      akeylessGWApiURL: "https://api.akeyless.io"
+      authSecretRef:
+        secretRef:
+          accessID:
+            name: akeyless-credentials
+            key: accessId
+            namespace: external-secrets
+          accessType:
+            name: akeyless-credentials
+            key: accessType
+            namespace: external-secrets
+          accessTypeParam:
+            name: akeyless-credentials
+            key: accessTypeParam
+            namespace: external-secrets
+---
+# Dynatrace API token for backend
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: dynatrace-external
+  namespace: seller-center
+spec:
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: akeyless-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: dynatrace-secret
+  data:
+    - secretKey: api-token
+      remoteRef:
+        key: "/seller-center/dynatrace-api-token"
+---
+# Dynatrace API token for monitoring (OTel Collector)
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: dynatrace-external
+  namespace: monitoring
+spec:
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: akeyless-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: dynatrace-secret
+  data:
+    - secretKey: api-token
+      remoteRef:
+        key: "/seller-center/dynatrace-api-token"
+---
+# MySQL root password
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: mysql-external
+  namespace: seller-center
+spec:
+  refreshInterval: "1h"
+  secretStoreRef:
+    name: akeyless-secret-store
+    kind: ClusterSecretStore
+  target:
+    name: mysql-secret
+  data:
+    - secretKey: mysql-root-password
+      remoteRef:
+        key: "/seller-center/mysql-root-password"

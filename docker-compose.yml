@@ -32,6 +32,17 @@ services:
     environment:
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
 
+  akeyless-gateway:
+    image: akeyless/base:latest-akeyless
+    container_name: akeyless-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8200:8200"
+      - "18888:18888"
+      - "8081:8081"
+      - "5696:5696"
+
 volumes:
   jenkins_home:
 
